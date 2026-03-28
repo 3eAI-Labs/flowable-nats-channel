@@ -100,12 +100,6 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.flowable</groupId>
-            <artifactId>flowable-event-registry-spring</artifactId>
-            <version>${flowable.version}</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
