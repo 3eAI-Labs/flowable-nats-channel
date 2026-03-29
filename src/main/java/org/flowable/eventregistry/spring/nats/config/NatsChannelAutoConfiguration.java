@@ -73,6 +73,8 @@ public class NatsChannelAutoConfiguration {
     private void configureAuth(Options.Builder builder, NatsProperties props) {
         if (props.getCredentialsFile() != null) {
             builder.authHandler(Nats.credentials(props.getCredentialsFile()));
+        } else if (props.getNkeyFile() != null) {
+            builder.authHandler(Nats.credentials(null, props.getNkeyFile()));
         } else if (props.getToken() != null) {
             builder.token(props.getToken().toCharArray());
         } else if (props.getUsername() != null) {

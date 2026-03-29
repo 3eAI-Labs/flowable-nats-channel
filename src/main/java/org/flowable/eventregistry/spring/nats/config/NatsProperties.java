@@ -12,6 +12,7 @@ public class NatsProperties {
     private String password;
     private String token;
     private String credentialsFile;
+    private String nkeyFile;
     private Duration connectionTimeout = Duration.ofSeconds(5);
     private int maxReconnects = -1;
     private Duration reconnectWait = Duration.ofSeconds(2);
@@ -55,6 +56,14 @@ public class NatsProperties {
 
     public void setCredentialsFile(String credentialsFile) {
         this.credentialsFile = credentialsFile;
+    }
+
+    public String getNkeyFile() {
+        return nkeyFile;
+    }
+
+    public void setNkeyFile(String nkeyFile) {
+        this.nkeyFile = nkeyFile;
     }
 
     public Duration getConnectionTimeout() {
