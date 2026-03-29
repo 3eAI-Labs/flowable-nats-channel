@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import io.nats.client.Connection;
+import io.nats.client.impl.NatsMessage;
 import org.flowable.common.engine.api.FlowableException;
 import org.flowable.eventregistry.api.OutboundEventChannelAdapter;
 import org.slf4j.Logger;
@@ -34,6 +35,11 @@ public class NatsOutboundEventChannelAdapter implements OutboundEventChannelAdap
                     "NATS outbound channel: connection not available for subject '" + subject
                     + "' (status: " + status + ")");
         }
-        connection.publish(subject, rawEvent.getBytes(StandardCharsets.UTF_8));
+        NatsMessage message = NatsMessage.builder()
+                .subject(subject)
+                .data(rawEvent.getBytes(StandardCharsets.UTF_8))
+                .headers(NatsHeaderUtils.toNatsHeaders(headerMap))
+                .build();
+        connection.publish(message);
     }
 }
