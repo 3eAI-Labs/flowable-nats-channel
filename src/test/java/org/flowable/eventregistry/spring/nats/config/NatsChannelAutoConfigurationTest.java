@@ -3,6 +3,7 @@ package org.flowable.eventregistry.spring.nats.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.nats.client.Connection;
+import io.nats.client.JetStream;
 import org.flowable.eventregistry.api.EventRegistry;
 import org.flowable.eventregistry.spring.nats.NatsChannelDefinitionProcessor;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,11 @@ class NatsChannelAutoConfigurationTest {
         @Bean
         Connection natsConnection() {
             return MOCK_CONNECTION;
+        }
+
+        @Bean
+        JetStream natsJetStream() {
+            return org.mockito.Mockito.mock(JetStream.class);
         }
     }
 }

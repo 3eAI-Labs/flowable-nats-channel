@@ -6,13 +6,19 @@ import java.io.IOException;
 
 import io.nats.client.Connection;
 import io.nats.client.ErrorListener;
+import io.nats.client.JetStream;
 import io.nats.client.Nats;
 import io.nats.client.Options;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.flowable.eventregistry.api.EventRegistry;
 import org.flowable.eventregistry.spring.nats.NatsChannelDefinitionProcessor;
+import org.flowable.eventregistry.spring.nats.jetstream.JetStreamStreamManager;
+import org.flowable.eventregistry.spring.nats.metrics.NatsChannelMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -66,8 +72,31 @@ public class NatsChannelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public NatsChannelDefinitionProcessor natsChannelDefinitionProcessor(Connection connection) {
-        return new NatsChannelDefinitionProcessor(connection);
+    public JetStream natsJetStream(Connection connection) throws IOException {
+        return connection.jetStream();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public JetStreamStreamManager jetStreamStreamManager() {
+        return new JetStreamStreamManager();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(MeterRegistry.class)
+    public NatsChannelMetrics natsChannelMetrics(MeterRegistry registry) {
+        return new NatsChannelMetrics(registry);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public NatsChannelDefinitionProcessor natsChannelDefinitionProcessor(
+            Connection connection,
+            JetStream jetStream,
+            JetStreamStreamManager streamManager,
+            @Autowired(required = false) NatsChannelMetrics metrics) {
+        return new NatsChannelDefinitionProcessor(connection, jetStream, streamManager, metrics);
     }
 
     private void configureAuth(Options.Builder builder, NatsProperties props) {
