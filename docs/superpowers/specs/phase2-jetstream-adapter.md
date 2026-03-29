@@ -59,7 +59,7 @@ All existing log statements in Phase 1 classes updated to use `StructuredArgumen
 ```
 src/test/java/org/flowable/eventregistry/spring/nats/
 ├── jetstream/
-│   ├── JetStreamInboundEventChannelAdapterTest.java     # Unit: 9 cases
+│   ├── JetStreamInboundEventChannelAdapterTest.java     # Unit: 10 cases
 │   ├── JetStreamOutboundEventChannelAdapterTest.java    # Unit: 3 cases
 │   ├── JetStreamStreamManagerTest.java                  # Unit: 3 cases
 │   ├── JetStreamInboundIntegrationTest.java             # Integration: 3 cases
@@ -180,16 +180,24 @@ void handleMessage(Message msg) {
         metrics.ackCount(subject, channelKey).increment();
 
     } catch (Exception e) {
-        long deliveryCount = msg.metaData().numDelivered();
-        Duration backoff = calculateBackoff(deliveryCount);
-        msg.nakWithDelay(backoff);
-        metrics.nakCount(subject, channelKey).increment();
-        log.error("Message processing failed, retry after {}",
-                kv("backoff", backoff),
-                kv("channel", channelKey),
-                kv("subject", msg.getSubject()),
-                kv("delivery_count", deliveryCount),
-                e);
+        try {
+            long deliveryCount = msg.metaData().numDelivered();
+            Duration backoff = calculateBackoff(deliveryCount);
+            msg.nakWithDelay(backoff);
+            metrics.nakCount(subject, channelKey).increment();
+            log.error("Message processing failed, retry after {}",
+                    kv("backoff", backoff),
+                    kv("channel", channelKey),
+                    kv("subject", msg.getSubject()),
+                    kv("delivery_count", deliveryCount),
+                    e);
+        } catch (Exception nakError) {
+            // Defensive: if metaData() or nakWithDelay() fails, fall back to plain nak
+            try { msg.nak(); } catch (Exception ignored) { /* best effort */ }
+            log.error("Message processing failed and nak handling also failed",
+                    kv("channel", channelKey),
+                    e);
+        }
     } finally {
         MDC.remove("trace_id");
     }
@@ -317,7 +325,22 @@ Headers are converted from `Map<String, Object>` to NATS `Headers` via `toNatsHe
 - `X-Correlation-Id` → correlates events across service boundaries
 - `Content-Type` → signals serialization format
 
-**Phase 1 retrofit:** The same header propagation must be added to `NatsOutboundEventChannelAdapter` (Core NATS) as well.
+**Phase 1 retrofit:** The same header propagation must be added to `NatsOutboundEventChannelAdapter` (Core NATS):
+
+```java
+// NatsOutboundEventChannelAdapter.sendEvent() — updated
+public void sendEvent(String rawEvent, Map<String, Object> headerMap) {
+    // ... status check ...
+    NatsMessage message = NatsMessage.builder()
+            .subject(subject)
+            .data(rawEvent.getBytes(StandardCharsets.UTF_8))
+            .headers(toNatsHeaders(headerMap))
+            .build();
+    connection.publish(message);
+}
+```
+
+The `toNatsHeaders()` helper is shared between Core NATS and JetStream outbound adapters (extract to a utility method or common base).
 
 ### 3.4 Virtual Thread Requirement
 
@@ -399,7 +422,31 @@ On error, `FlowableException` is thrown — the Flowable process knows the publi
 }
 ```
 
-### 4.5 Processor Routing (Updated)
+### 4.5 Channel Field Parsing
+
+Flowable delivers channel JSON as a `ChannelModel` with a generic `channelFields` list. The processor must parse these fields into typed model objects. This happens in `registerChannelModel()` before routing:
+
+```java
+private NatsInboundChannelModel parseInboundFields(NatsInboundChannelModel model) {
+    // channelFields are already on the model via Flowable's JSON deserialization
+    // For JetStream fields, parse from the model's extension or channelFields:
+    // The exact mechanism depends on how Flowable populates custom model subclasses.
+    //
+    // Option A: Flowable uses Jackson to deserialize directly into our model subclass
+    //           (if registered via ChannelModelClassProvider or similar SPI)
+    // Option B: Fields are in ChannelModel.getExtension() JsonNode and we parse manually
+    //
+    // Implementation must verify at compile time which mechanism Flowable 7.1.0 uses.
+    // The key requirement: all JetStream fields (durableName, deliverPolicy, ackWait,
+    // maxDeliver, dlqSubject, autoCreateStream, streamName) must be populated on
+    // the model object before the adapter is created.
+    return model;
+}
+```
+
+**Implementation note:** The exact parsing mechanism must be verified against Flowable 7.1.0 source at implementation time. The Kafka adapter uses `KafkaInboundChannelModel` with Jackson `@JsonProperty` annotations — our approach should mirror this pattern.
+
+### 4.6 Processor Routing (Updated)
 
 ```java
 // NatsChannelDefinitionProcessor — validateJetstream() removed, replaced with routing
@@ -420,6 +467,21 @@ if (channelModel instanceof NatsInboundChannelModel inboundModel) {
 
 Phase 1 code paths are fully preserved. `jetstream=false` (default) behaves identically to Phase 1.
 
+### 4.7 JetStream Consumer Config: Server-side maxDeliver
+
+**Critical:** The adapter manages DLQ routing based on its own `maxDeliver` config. To prevent conflict with JetStream server-side maxDeliver enforcement, the consumer subscription must set server-side `maxDeliver = -1` (unlimited):
+
+```java
+ConsumerConfiguration config = ConsumerConfiguration.builder()
+        .durable(durableName)
+        .deliverPolicy(deliverPolicy)
+        .ackWait(ackWait)
+        .maxDeliver(-1)  // unlimited — adapter manages DLQ routing
+        .build();
+```
+
+The adapter checks `numDelivered() > maxDeliver` and routes to DLQ. If server-side maxDeliver were set to the same value, the server would stop delivery before the adapter's DLQ logic triggers (server stops at count N, adapter checks for N+1). Setting server to -1 gives the adapter full control.
+
 ---
 
 ## 5. Stream Auto-Create Guard
@@ -430,28 +492,38 @@ Phase 1 code paths are fully preserved. `jetstream=false` (default) behaves iden
 public class JetStreamStreamManager {
 
     public void ensureStream(String streamName, String subject, Connection connection) {
-        JetStreamManagement jsm = connection.jetStreamManagement();
-
         try {
-            jsm.getStreamInfo(streamName);
-            log.debug("Stream exists",
-                    kv("stream", streamName));
-        } catch (JetStreamApiException e) {
-            if (e.getErrorCode() == 404) {
-                StreamConfiguration config = StreamConfiguration.builder()
-                        .name(streamName)
-                        .subjects(subject)
-                        .retentionPolicy(RetentionPolicy.Limits)
-                        .storageType(StorageType.File)
-                        .build();
-                jsm.addStream(config);
-                log.info("Stream created",
-                        kv("stream", streamName),
-                        kv("subject", subject));
-            } else {
-                throw new FlowableException(
-                        "Failed to check stream '" + streamName + "'", e);
+            JetStreamManagement jsm = connection.jetStreamManagement();
+
+            try {
+                jsm.getStreamInfo(streamName);
+                log.debug("Stream exists",
+                        kv("stream", streamName));
+            } catch (JetStreamApiException e) {
+                if (e.getErrorCode() == 404) {
+                    StreamConfiguration config = StreamConfiguration.builder()
+                            .name(streamName)
+                            .subjects(subject)
+                            .retentionPolicy(RetentionPolicy.Limits)
+                            .storageType(StorageType.File)
+                            .build();
+                    jsm.addStream(config);
+                    log.info("Stream created",
+                            kv("stream", streamName),
+                            kv("subject", subject));
+                } else {
+                    throw new FlowableException(
+                            "Failed to check stream '" + streamName + "'", e);
+                }
             }
+        } catch (IOException e) {
+            throw new FlowableException(
+                    "I/O error while managing stream '" + streamName + "'", e);
+        } catch (FlowableException e) {
+            throw e;  // pass through
+        } catch (Exception e) {
+            throw new FlowableException(
+                    "Unexpected error managing stream '" + streamName + "'", e);
         }
     }
 }
@@ -517,10 +589,23 @@ sample.stop(metrics.processingTimer(subject, channelKey));
 
 This enables Grafana dashboards to show P95/P99 processing latency, helping identify slow Flowable logic or DB bottlenecks before they trigger slow consumer alerts.
 
-### 6.2 Conditional Loading
+### 6.2 JetStream Bean and Conditional Loading
 
 ```java
-// NatsChannelAutoConfiguration
+// NatsChannelAutoConfiguration — Phase 2 additions
+
+@Bean
+@ConditionalOnMissingBean
+public JetStream natsJetStream(Connection connection) throws IOException {
+    return connection.jetStream();
+}
+
+@Bean
+@ConditionalOnMissingBean
+public JetStreamStreamManager jetStreamStreamManager() {
+    return new JetStreamStreamManager();
+}
+
 @Bean
 @ConditionalOnClass(MeterRegistry.class)
 @ConditionalOnMissingBean
@@ -529,7 +614,27 @@ public NatsChannelMetrics natsChannelMetrics(MeterRegistry registry) {
 }
 ```
 
+The `JetStream` object is obtained from `Connection` and provided as a bean. The processor and adapters receive it via constructor injection.
+
 When Micrometer is not on the classpath, no metrics bean is created. Adapters receive `NatsChannelMetrics` as an optional dependency — if null, no metrics are recorded. Zero overhead.
+
+### 6.3 Executor Lifecycle
+
+The `VirtualThreadPerTaskExecutor` in `JetStreamInboundEventChannelAdapter` must be shut down when the adapter unsubscribes:
+
+```java
+public void unsubscribe() {
+    if (dispatcher != null) {
+        // ... drain and close dispatcher ...
+    }
+    if (executor != null) {
+        executor.close();  // waits for running virtual threads to complete
+        executor = null;
+    }
+}
+```
+
+This prevents virtual thread leaks when a channel is undeployed.
 
 ### 6.3 Metrics Integration Points
 
@@ -694,16 +799,17 @@ When all DLQ publish attempts fail, `msg.ack()` is still called. Rationale:
 
 | # | Test Class | Cases | Tools |
 |---|-----------|-------|-------|
-| 1 | `JetStreamInboundEventChannelAdapterTest` | 9 | JUnit 5 + Mockito |
+| 1 | `JetStreamInboundEventChannelAdapterTest` | 10 | JUnit 5 + Mockito |
 | 2 | `JetStreamOutboundEventChannelAdapterTest` | 3 | JUnit 5 + Mockito |
 | 3 | `JetStreamStreamManagerTest` | 3 | JUnit 5 + Mockito |
 | 4 | `NatsChannelMetricsTest` | 2 | SimpleMeterRegistry |
 | 5 | `NatsChannelDefinitionProcessorTest` (additions) | +2 | JUnit 5 + Mockito |
 
-**JetStreamInboundEventChannelAdapterTest (9 cases):**
+**JetStreamInboundEventChannelAdapterTest (10 cases):**
 - `handleMessage_success_acksMessage`
 - `handleMessage_error_naksWithDelay`
 - `handleMessage_error_backoffExponential`
+- `handleMessage_error_metadataFails_fallsBackToPlainNak`
 - `handleMessage_maxDeliverExceeded_publishesToDlq`
 - `handleMessage_dlqJetStreamFails_fallbackToCoreNats`
 - `handleMessage_dlqBothFail_stillAcks`
@@ -761,9 +867,9 @@ static GenericContainer<?> natsContainer = new GenericContainer<>("nats:2.10-alp
 
 | Category | Phase 1 | Phase 2 New | Total |
 |----------|---------|-------------|-------|
-| Unit | 18 | 19 | 37 |
+| Unit | 18 | 20 | 38 |
 | Integration | 3 | 5 | 8 |
-| **Total** | **21** | **24** | **45** |
+| **Total** | **21** | **25** | **46** |
 
 ---
 
