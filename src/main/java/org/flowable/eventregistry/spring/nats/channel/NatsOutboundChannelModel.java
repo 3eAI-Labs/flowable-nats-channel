@@ -6,6 +6,8 @@ public class NatsOutboundChannelModel extends OutboundChannelModel {
 
     private String subject;
     private boolean jetstream;
+    private boolean autoCreateStream;
+    private String streamName;
 
     public String getSubject() {
         return subject;
@@ -21,5 +23,21 @@ public class NatsOutboundChannelModel extends OutboundChannelModel {
 
     public void setJetstream(boolean jetstream) {
         this.jetstream = jetstream;
+    }
+
+    public boolean isAutoCreateStream() {
+        return autoCreateStream;
+    }
+
+    public void setAutoCreateStream(boolean autoCreateStream) {
+        this.autoCreateStream = autoCreateStream;
+    }
+
+    public String getStreamName() {
+        return streamName;
+    }
+
+    public void setStreamName(String streamName) {
+        this.streamName = streamName;
     }
 }
