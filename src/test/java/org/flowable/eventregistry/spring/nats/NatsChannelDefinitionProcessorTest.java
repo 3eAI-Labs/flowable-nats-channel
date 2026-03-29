@@ -3,13 +3,17 @@ package org.flowable.eventregistry.spring.nats;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.nats.client.Connection;
 import io.nats.client.Dispatcher;
+import io.nats.client.JetStream;
+import io.nats.client.JetStreamSubscription;
 import io.nats.client.MessageHandler;
+import io.nats.client.PushSubscribeOptions;
 import io.nats.client.Subscription;
 import org.flowable.common.engine.api.FlowableException;
 import org.flowable.eventregistry.api.EventRegistry;
@@ -17,19 +21,26 @@ import org.flowable.eventregistry.api.EventRepositoryService;
 import org.flowable.eventregistry.model.InboundChannelModel;
 import org.flowable.eventregistry.spring.nats.channel.NatsInboundChannelModel;
 import org.flowable.eventregistry.spring.nats.channel.NatsOutboundChannelModel;
+import org.flowable.eventregistry.spring.nats.jetstream.JetStreamInboundEventChannelAdapter;
+import org.flowable.eventregistry.spring.nats.jetstream.JetStreamOutboundEventChannelAdapter;
+import org.flowable.eventregistry.spring.nats.jetstream.JetStreamStreamManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class NatsChannelDefinitionProcessorTest {
 
     private Connection connection;
+    private JetStream jetStream;
+    private JetStreamStreamManager streamManager;
     private EventRegistry eventRegistry;
     private EventRepositoryService eventRepositoryService;
     private NatsChannelDefinitionProcessor processor;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         connection = mock(Connection.class);
+        jetStream = mock(JetStream.class);
+        streamManager = mock(JetStreamStreamManager.class);
         eventRegistry = mock(EventRegistry.class);
         eventRepositoryService = mock(EventRepositoryService.class);
 
@@ -38,7 +49,11 @@ class NatsChannelDefinitionProcessorTest {
         when(dispatcher.subscribe(anyString(), any(MessageHandler.class))).thenReturn(mock(Subscription.class));
         when(dispatcher.subscribe(anyString(), anyString(), any(MessageHandler.class))).thenReturn(mock(Subscription.class));
 
-        processor = new NatsChannelDefinitionProcessor(connection);
+        JetStreamSubscription jsSub = mock(JetStreamSubscription.class);
+        when(jetStream.subscribe(anyString(), any(Dispatcher.class), any(MessageHandler.class),
+                anyBoolean(), any(PushSubscribeOptions.class))).thenReturn(jsSub);
+
+        processor = new NatsChannelDefinitionProcessor(connection, jetStream, streamManager, null);
     }
 
     @Test
@@ -105,16 +120,29 @@ class NatsChannelDefinitionProcessorTest {
     }
 
     @Test
-    void registerInbound_jetstreamTrue_throwsException() {
+    void registerInbound_jetstreamTrue_createsJetStreamAdapter() {
         NatsInboundChannelModel model = new NatsInboundChannelModel();
         model.setKey("testChannel");
         model.setSubject("order.new");
         model.setJetstream(true);
+        model.setMaxDeliver(5);
 
-        assertThatThrownBy(() ->
-                processor.registerChannelModel(model, null, eventRegistry, eventRepositoryService, false))
-                .isInstanceOf(FlowableException.class)
-                .hasMessageContaining("JetStream")
-                .hasMessageContaining("not yet supported");
+        processor.registerChannelModel(model, null, eventRegistry, eventRepositoryService, false);
+
+        assertThat(model.getInboundEventChannelAdapter())
+                .isInstanceOf(JetStreamInboundEventChannelAdapter.class);
+    }
+
+    @Test
+    void registerOutbound_jetstreamTrue_createsJetStreamAdapter() {
+        NatsOutboundChannelModel model = new NatsOutboundChannelModel();
+        model.setKey("testChannel");
+        model.setSubject("order.completed");
+        model.setJetstream(true);
+
+        processor.registerChannelModel(model, null, eventRegistry, eventRepositoryService, false);
+
+        assertThat(model.getOutboundEventChannelAdapter())
+                .isInstanceOf(JetStreamOutboundEventChannelAdapter.class);
     }
 }
