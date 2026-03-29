@@ -69,9 +69,11 @@ public class JetStreamInboundEventChannelAdapter implements InboundEventChannelA
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
         this.dispatcher = connection.createDispatcher();
         try {
+            // Allow one extra delivery beyond the DLQ threshold so the adapter
+            // can detect maxDeliver exceeded and route to the dead-letter subject.
             ConsumerConfiguration cc = ConsumerConfiguration.builder()
                     .ackWait(Duration.ofSeconds(30))
-                    .maxDeliver(maxDeliver)
+                    .maxDeliver(maxDeliver + 1)
                     .build();
             PushSubscribeOptions opts = PushSubscribeOptions.builder()
                     .configuration(cc)
