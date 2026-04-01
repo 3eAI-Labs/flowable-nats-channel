@@ -156,6 +156,11 @@ public class NatsRequestReplyDelegate implements JavaDelegate {
 
         } catch (FlowableException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (metrics != null) metrics.requestReplyErrorCount(subjectVal).increment();
+            throw new FlowableException(
+                    "NATS request-reply interrupted for subject '" + subjectVal + "'", e);
         } catch (Exception e) {
             if (metrics != null) metrics.requestReplyErrorCount(subjectVal).increment();
             throw new FlowableException(
@@ -192,6 +197,7 @@ public class NatsRequestReplyDelegate implements JavaDelegate {
         // Support "30s", "5m", "1h" shorthand
         if (str.matches("\\d+s")) return Duration.ofSeconds(Long.parseLong(str.replace("s", "")));
         if (str.matches("\\d+m")) return Duration.ofMinutes(Long.parseLong(str.replace("m", "")));
+        if (str.matches("\\d+h")) return Duration.ofHours(Long.parseLong(str.replace("h", "")));
         return Duration.parse(str);  // ISO-8601 fallback
     }
 
@@ -270,6 +276,8 @@ public Counter requestReplyErrorCount(String subject) {
 }
 ```
 
+**Note:** These methods take a single `subject` parameter, unlike other `NatsChannelMetrics` methods that take `(subject, channel)`. This is intentional — request-reply has no "channel" concept. The delegate is a service task integration, not a channel adapter.
+
 ### 3.2 Monitoring
 
 Grafana query for error rate: `rate(nats_requestreply_errors_total[5m]) / rate(nats_requestreply_requests_total[5m])`
@@ -301,7 +309,7 @@ Log levels:
 ```java
 // NatsChannelAutoConfiguration — new bean
 @Bean
-@ConditionalOnMissingBean
+@Scope("prototype")
 public NatsRequestReplyDelegate natsRequestReply(
         Connection connection,
         @Autowired(required = false) NatsChannelMetrics metrics) {
@@ -311,7 +319,7 @@ public NatsRequestReplyDelegate natsRequestReply(
 
 Bean name `natsRequestReply` matches BPMN `delegateExpression="${natsRequestReply}"`.
 
-**Note on Flowable field injection:** `JavaDelegate` beans used with `delegateExpression` must be prototype-scoped if field injection is used with `Expression` setters. However, Flowable resolves `Expression` objects per execution — the delegate instance can be singleton since expressions are stateless. Verify this at implementation time against Flowable 7.1.0 behavior.
+**Critical: Prototype scope required.** When Flowable uses `delegateExpression` with field injection (`Expression` setters), it calls setters on the bean instance before `execute()`. Under concurrent process execution, a singleton bean would have a race condition — Thread A sets `subject` to `"task.sms.send"`, Thread B overwrites it with `"task.ota.provision"` before Thread A calls `execute()`. Prototype scope ensures each execution gets a fresh delegate instance.
 
 ---
 
@@ -410,7 +418,7 @@ await nc.subscribe("task.sms.send", queue="sms-send-workers", cb=handler)
 | 3 | Sync request on virtual thread | Process semantics require synchronous result. Virtual thread makes sync call free. |
 | 4 | Timeout → FlowableException | BPMN boundary error events catch timeouts. Retry logic in BPMN, not adapter. Separation of concerns. |
 | 5 | Expression-based fields | Dynamic subjects (`task.${taskType}`), runtime-resolved from process variables. |
-| 6 | Singleton bean | Expression objects are stateless — safe to share across executions. Verify against Flowable 7.1.0. |
+| 6 | Prototype-scoped bean | Expression field injection is not thread-safe on a singleton. Prototype scope prevents race conditions under concurrent execution. |
 
 ## Appendix B: Guidelines Compliance
 
