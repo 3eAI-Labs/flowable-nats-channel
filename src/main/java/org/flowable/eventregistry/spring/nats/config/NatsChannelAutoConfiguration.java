@@ -14,6 +14,7 @@ import org.flowable.eventregistry.api.EventRegistry;
 import org.flowable.eventregistry.spring.nats.NatsChannelDefinitionProcessor;
 import org.flowable.eventregistry.spring.nats.jetstream.JetStreamStreamManager;
 import org.flowable.eventregistry.spring.nats.metrics.NatsChannelMetrics;
+import org.flowable.eventregistry.spring.nats.requestreply.NatsRequestReplyDelegate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Scope;
 
 @AutoConfiguration
 @ConditionalOnClass({ Connection.class, EventRegistry.class })
@@ -97,6 +99,14 @@ public class NatsChannelAutoConfiguration {
             JetStreamStreamManager streamManager,
             @Autowired(required = false) NatsChannelMetrics metrics) {
         return new NatsChannelDefinitionProcessor(connection, jetStream, streamManager, metrics);
+    }
+
+    @Bean
+    @Scope("prototype")
+    public NatsRequestReplyDelegate natsRequestReply(
+            Connection connection,
+            @Autowired(required = false) NatsChannelMetrics metrics) {
+        return new NatsRequestReplyDelegate(connection, metrics);
     }
 
     private void configureAuth(Options.Builder builder, NatsProperties props) {
