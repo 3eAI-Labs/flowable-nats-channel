@@ -60,6 +60,14 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Flowable Engine (for JavaDelegate support) -->
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-engine</artifactId>
+            <version>${flowable.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- NATS Java Client -->
         <dependency>
             <groupId>io.nats</groupId>
