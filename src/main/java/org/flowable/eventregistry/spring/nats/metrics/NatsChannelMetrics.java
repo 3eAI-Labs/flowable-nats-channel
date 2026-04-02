@@ -69,4 +69,15 @@ public class NatsChannelMetrics {
     public Counter slowConsumerCount() {
         return Counter.builder("nats.connection.slow.consumers").register(registry);
     }
+
+    // Request-Reply metrics (single subject tag — no channel concept)
+    public Counter requestReplyCount(String subject) {
+        return Counter.builder("nats.requestreply.requests")
+                .tag("subject", subject).register(registry);
+    }
+
+    public Counter requestReplyErrorCount(String subject) {
+        return Counter.builder("nats.requestreply.errors")
+                .tag("subject", subject).register(registry);
+    }
 }

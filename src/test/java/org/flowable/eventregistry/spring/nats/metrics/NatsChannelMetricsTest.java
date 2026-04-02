@@ -46,6 +46,18 @@ class NatsChannelMetricsTest {
     }
 
     @Test
+    void requestReplyCounters_registeredAndIncrementCorrectly() {
+        Counter requests = metrics.requestReplyCount("task.send-sms");
+        Counter errors = metrics.requestReplyErrorCount("task.send-sms");
+        requests.increment();
+        errors.increment();
+        assertThat(requests.count()).isEqualTo(1.0);
+        assertThat(errors.count()).isEqualTo(1.0);
+        assertThat(requests.getId().getName()).isEqualTo("nats.requestreply.requests");
+        assertThat(requests.getId().getTag("subject")).isEqualTo("task.send-sms");
+    }
+
+    @Test
     void processingTimer_registeredCorrectly() {
         Timer timer = metrics.processingTimer("order.new", "orderChannel");
 
