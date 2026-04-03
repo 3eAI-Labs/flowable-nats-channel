@@ -1,4 +1,4 @@
-package org.flowable.eventregistry.spring.nats.config;
+package com.threeai.nats.core;
 
 import java.time.Duration;
 

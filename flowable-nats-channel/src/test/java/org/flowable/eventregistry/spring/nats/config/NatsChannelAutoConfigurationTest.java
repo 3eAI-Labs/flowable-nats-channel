@@ -2,6 +2,7 @@ package org.flowable.eventregistry.spring.nats.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.threeai.nats.core.NatsProperties;
 import io.nats.client.Connection;
 import io.nats.client.JetStream;
 import org.flowable.eventregistry.api.EventRegistry;
@@ -18,7 +19,7 @@ class NatsChannelAutoConfigurationTest {
     @Test
     void autoConfig_withCustomConnection_createsBeans() {
         new ApplicationContextRunner()
-                .withConfiguration(AutoConfigurations.of(NatsChannelAutoConfiguration.class))
+                .withConfiguration(AutoConfigurations.of(FlowableNatsAutoConfiguration.class))
                 .withUserConfiguration(MockConnectionConfig.class)
                 .run(context -> {
                     assertThat(context).hasSingleBean(NatsProperties.class);
@@ -30,7 +31,7 @@ class NatsChannelAutoConfigurationTest {
     @Test
     void autoConfig_customConnectionBean_isUsed() {
         new ApplicationContextRunner()
-                .withConfiguration(AutoConfigurations.of(NatsChannelAutoConfiguration.class))
+                .withConfiguration(AutoConfigurations.of(FlowableNatsAutoConfiguration.class))
                 .withUserConfiguration(MockConnectionConfig.class)
                 .run(context -> {
                     assertThat(context.getBean(Connection.class))
@@ -41,7 +42,7 @@ class NatsChannelAutoConfigurationTest {
     @Test
     void autoConfig_missingFlowable_doesNotLoad() {
         new ApplicationContextRunner()
-                .withConfiguration(AutoConfigurations.of(NatsChannelAutoConfiguration.class))
+                .withConfiguration(AutoConfigurations.of(FlowableNatsAutoConfiguration.class))
                 .withClassLoader(new FilteredClassLoader(EventRegistry.class))
                 .run(context -> {
                     assertThat(context).doesNotHaveBean(NatsChannelDefinitionProcessor.class);

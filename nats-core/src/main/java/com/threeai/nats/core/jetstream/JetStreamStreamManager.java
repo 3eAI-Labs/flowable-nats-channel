@@ -1,4 +1,4 @@
-package org.flowable.eventregistry.spring.nats.jetstream;
+package com.threeai.nats.core.jetstream;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
@@ -10,7 +10,6 @@ import io.nats.client.JetStreamManagement;
 import io.nats.client.api.RetentionPolicy;
 import io.nats.client.api.StorageType;
 import io.nats.client.api.StreamConfiguration;
-import org.flowable.common.engine.api.FlowableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,15 +34,15 @@ public class JetStreamStreamManager {
                     jsm.addStream(config);
                     log.info("Stream created", kv("stream", streamName), kv("subject", subject));
                 } else {
-                    throw new FlowableException("Failed to check stream '" + streamName + "'", e);
+                    throw new IllegalStateException("Failed to check stream '" + streamName + "'", e);
                 }
             }
         } catch (IOException e) {
-            throw new FlowableException("I/O error while managing stream '" + streamName + "'", e);
-        } catch (FlowableException e) {
+            throw new IllegalStateException("I/O error while managing stream '" + streamName + "'", e);
+        } catch (IllegalStateException e) {
             throw e;
         } catch (Exception e) {
-            throw new FlowableException("Unexpected error managing stream '" + streamName + "'", e);
+            throw new IllegalStateException("Unexpected error managing stream '" + streamName + "'", e);
         }
     }
 }

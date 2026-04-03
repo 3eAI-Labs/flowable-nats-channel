@@ -30,7 +30,7 @@ import org.flowable.eventregistry.api.runtime.EventInstance;
 import org.flowable.eventregistry.model.ChannelModel;
 import org.flowable.eventregistry.model.InboundChannelModel;
 import org.flowable.eventregistry.spring.nats.channel.NatsInboundChannelModel;
-import org.flowable.eventregistry.spring.nats.metrics.NatsChannelMetrics;
+import com.threeai.nats.core.metrics.NatsChannelMetrics;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -3,6 +3,7 @@ package org.flowable.eventregistry.spring.nats.jetstream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.threeai.nats.core.jetstream.JetStreamStreamManager;
 import io.nats.client.Connection;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamManagement;

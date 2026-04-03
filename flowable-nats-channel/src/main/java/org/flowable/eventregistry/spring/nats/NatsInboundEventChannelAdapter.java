@@ -4,6 +4,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import java.time.Duration;
 
+import com.threeai.nats.core.NatsHeaderUtils;
 import io.nats.client.Connection;
 import io.nats.client.Dispatcher;
 import io.nats.client.Message;
@@ -72,7 +73,7 @@ public class NatsInboundEventChannelAdapter implements InboundEventChannelAdapte
     }
 
     void handleMessage(Message message) {
-        String traceId = extractHeader(message, "X-Trace-Id");
+        String traceId = NatsHeaderUtils.extractHeader(message, "X-Trace-Id");
         try {
             if (traceId != null) {
                 MDC.put("trace_id", traceId);
@@ -92,12 +93,5 @@ public class NatsInboundEventChannelAdapter implements InboundEventChannelAdapte
         } finally {
             MDC.remove("trace_id");
         }
-    }
-
-    private String extractHeader(Message msg, String key) {
-        if (msg.getHeaders() != null && msg.getHeaders().containsKey(key)) {
-            return msg.getHeaders().getLast(key);
-        }
-        return null;
     }
 }

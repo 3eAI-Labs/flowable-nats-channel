@@ -1,7 +1,8 @@
-package org.flowable.eventregistry.spring.nats;
+package com.threeai.nats.core;
 
 import java.util.Map;
 
+import io.nats.client.Message;
 import io.nats.client.impl.Headers;
 
 public final class NatsHeaderUtils {
@@ -20,5 +21,12 @@ public final class NatsHeaderUtils {
             }
         });
         return headers;
+    }
+
+    public static String extractHeader(Message msg, String key) {
+        if (msg.getHeaders() != null && msg.getHeaders().containsKey(key)) {
+            return msg.getHeaders().getLast(key);
+        }
+        return null;
     }
 }

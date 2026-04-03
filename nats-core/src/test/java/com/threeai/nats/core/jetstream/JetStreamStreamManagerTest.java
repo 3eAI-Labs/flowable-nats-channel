@@ -1,4 +1,4 @@
-package org.flowable.eventregistry.spring.nats.jetstream;
+package com.threeai.nats.core.jetstream;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,7 +15,6 @@ import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamManagement;
 import io.nats.client.api.StreamConfiguration;
 import io.nats.client.api.StreamInfo;
-import org.flowable.common.engine.api.FlowableException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -55,13 +54,13 @@ class JetStreamStreamManagerTest {
     }
 
     @Test
-    void ensureStream_apiFails_throwsFlowableException() throws Exception {
+    void ensureStream_apiFails_throwsIllegalStateException() throws Exception {
         JetStreamApiException serverError = mock(JetStreamApiException.class);
         when(serverError.getErrorCode()).thenReturn(500);
         when(jsm.getStreamInfo("ORDERS")).thenThrow(serverError);
 
         assertThatThrownBy(() -> manager.ensureStream("ORDERS", "order.>", connection))
-                .isInstanceOf(FlowableException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ORDERS");
     }
 }

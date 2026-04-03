@@ -23,7 +23,7 @@ import org.flowable.eventregistry.spring.nats.channel.NatsInboundChannelModel;
 import org.flowable.eventregistry.spring.nats.channel.NatsOutboundChannelModel;
 import org.flowable.eventregistry.spring.nats.jetstream.JetStreamInboundEventChannelAdapter;
 import org.flowable.eventregistry.spring.nats.jetstream.JetStreamOutboundEventChannelAdapter;
-import org.flowable.eventregistry.spring.nats.jetstream.JetStreamStreamManager;
+import com.threeai.nats.core.jetstream.JetStreamStreamManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

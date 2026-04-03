@@ -7,6 +7,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.threeai.nats.core.NatsHeaderUtils;
+import com.threeai.nats.core.metrics.NatsChannelMetrics;
 import io.nats.client.Connection;
 import io.nats.client.Dispatcher;
 import io.nats.client.JetStream;
@@ -20,7 +22,6 @@ import org.flowable.eventregistry.api.EventRegistry;
 import org.flowable.eventregistry.api.InboundEventChannelAdapter;
 import org.flowable.eventregistry.model.InboundChannelModel;
 import org.flowable.eventregistry.spring.nats.NatsInboundEvent;
-import org.flowable.eventregistry.spring.nats.metrics.NatsChannelMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -115,7 +116,7 @@ public class JetStreamInboundEventChannelAdapter implements InboundEventChannelA
     }
 
     void handleMessage(Message msg) {
-        String traceId = extractHeader(msg, "X-Trace-Id");
+        String traceId = NatsHeaderUtils.extractHeader(msg, "X-Trace-Id");
         if (traceId != null) {
             MDC.put("trace_id", traceId);
         }
@@ -233,12 +234,5 @@ public class JetStreamInboundEventChannelAdapter implements InboundEventChannelA
                         kv("dlq_subject", dlqSubject), ex);
             }
         }
-    }
-
-    private String extractHeader(Message msg, String key) {
-        if (msg.getHeaders() == null) {
-            return null;
-        }
-        return msg.getHeaders().getLast(key);
     }
 }

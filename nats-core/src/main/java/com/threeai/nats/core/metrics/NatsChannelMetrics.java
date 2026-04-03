@@ -1,4 +1,4 @@
-package org.flowable.eventregistry.spring.nats.metrics;
+package com.threeai.nats.core.metrics;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;

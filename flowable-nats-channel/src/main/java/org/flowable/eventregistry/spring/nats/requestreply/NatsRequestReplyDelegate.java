@@ -5,13 +5,13 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
+import com.threeai.nats.core.metrics.NatsChannelMetrics;
 import io.nats.client.Connection;
 import io.nats.client.Message;
 import org.flowable.common.engine.api.FlowableException;
 import org.flowable.common.engine.api.delegate.Expression;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
-import org.flowable.eventregistry.spring.nats.metrics.NatsChannelMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;

@@ -5,6 +5,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import com.threeai.nats.core.NatsHeaderUtils;
 import io.nats.client.Connection;
 import io.nats.client.impl.NatsMessage;
 import org.flowable.common.engine.api.FlowableException;

@@ -18,7 +18,7 @@ import io.nats.client.PullSubscribeOptions;
 import io.nats.client.api.AckPolicy;
 import io.nats.client.api.ConsumerConfiguration;
 import io.nats.client.api.StreamConfiguration;
-import org.flowable.eventregistry.spring.nats.metrics.NatsChannelMetrics;
+import com.threeai.nats.core.metrics.NatsChannelMetrics;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -3,6 +3,8 @@ package org.flowable.eventregistry.spring.nats;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.threeai.nats.core.jetstream.JetStreamStreamManager;
+import com.threeai.nats.core.metrics.NatsChannelMetrics;
 import io.nats.client.Connection;
 import io.nats.client.JetStream;
 import org.flowable.common.engine.api.FlowableException;
@@ -14,8 +16,6 @@ import org.flowable.eventregistry.spring.nats.channel.NatsInboundChannelModel;
 import org.flowable.eventregistry.spring.nats.channel.NatsOutboundChannelModel;
 import org.flowable.eventregistry.spring.nats.jetstream.JetStreamInboundEventChannelAdapter;
 import org.flowable.eventregistry.spring.nats.jetstream.JetStreamOutboundEventChannelAdapter;
-import org.flowable.eventregistry.spring.nats.jetstream.JetStreamStreamManager;
-import org.flowable.eventregistry.spring.nats.metrics.NatsChannelMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

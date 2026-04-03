@@ -1,4 +1,4 @@
-package org.flowable.eventregistry.spring.nats.metrics;
+package com.threeai.nats.core.metrics;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
