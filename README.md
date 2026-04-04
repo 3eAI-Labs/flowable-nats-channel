@@ -3,7 +3,7 @@
 [![CI](https://github.com/3eAI-Labs/flowable-nats-channel/actions/workflows/ci.yml/badge.svg)](https://github.com/3eAI-Labs/flowable-nats-channel/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-NATS.io channel adapter for [Flowable](https://www.flowable.com/open-source) Event Registry. Enables Flowable BPMN/CMMN processes to send and receive events via NATS Core, JetStream, and Request-Reply.
+NATS.io channel adapters for [Flowable](https://www.flowable.com/open-source) Event Registry and [Camunda 7](https://docs.camunda.org/manual/7.24/) BPM Platform. Enables BPMN/CMMN processes to send and receive events via NATS Core, JetStream, and Request-Reply.
 
 ## Why this project?
 
@@ -196,11 +196,102 @@ async def handler(msg):
 await nc.subscribe("task.send-sms", queue="sms-workers", cb=handler)
 ```
 
+## Camunda 7 Support
+
+For organizations running Camunda 7.x (including forks maintaining their own security patches), this project provides a complete NATS messaging layer via the `camunda-nats-channel` module.
+
+### 1. Add dependency
+
+```xml
+<dependency>
+    <groupId>com.3eai</groupId>
+    <artifactId>camunda-nats-channel</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+### 2. Configure subscriptions
+
+```yaml
+spring:
+  nats:
+    url: nats://localhost:4222
+    camunda:
+      subscriptions:
+        - subject: order.new
+          messageName: OrderReceived
+          businessKeyHeader: X-Business-Key
+        - subject: payment.completed
+          messageName: PaymentConfirmed
+          jetstream: true
+          durableName: payment-consumer
+          maxDeliver: 5
+          dlqSubject: dlq.payment.completed
+          autoCreateStream: true
+          streamName: PAYMENTS
+```
+
+### 3. Inbound: NATS to Camunda message correlation
+
+Messages arriving on configured NATS subjects are automatically correlated to waiting Camunda process instances using `RuntimeService.createMessageCorrelation()`.
+
+- **Core NATS** -- `NatsMessageCorrelationSubscriber` for fire-and-forget pub/sub
+- **JetStream** -- `JetStreamMessageCorrelationSubscriber` with ack/nack, exponential backoff, and DLQ
+
+Variables set on the process instance:
+- `natsPayload` -- raw message body (String)
+- `natsSubject` -- NATS subject the message arrived on
+
+### 4. Outbound: Camunda to NATS delegates
+
+Use as `JavaDelegate` in service tasks:
+
+**Core NATS Publish:**
+```xml
+<serviceTask id="notifyOrder" camunda:delegateExpression="${natsPublishDelegate}">
+  <extensionElements>
+    <camunda:field name="subject" stringValue="order.completed" />
+    <camunda:field name="payloadVariable" stringValue="orderPayload" />
+  </extensionElements>
+</serviceTask>
+```
+
+**JetStream Publish:**
+```xml
+<serviceTask id="persistEvent" camunda:delegateExpression="${jetStreamPublishDelegate}">
+  <extensionElements>
+    <camunda:field name="subject" stringValue="audit.events" />
+    <camunda:field name="payloadVariable" stringValue="auditPayload" />
+  </extensionElements>
+</serviceTask>
+```
+
+**Request-Reply (External Workers):**
+```xml
+<serviceTask id="sendSms" camunda:delegateExpression="${natsRequestReply}">
+  <extensionElements>
+    <camunda:field name="subject" stringValue="task.send-sms" />
+    <camunda:field name="timeout" stringValue="30s" />
+    <camunda:field name="resultVariable" stringValue="smsResult" />
+    <camunda:field name="payloadVariable" stringValue="smsPayload" />
+  </extensionElements>
+</serviceTask>
+```
+
+### Camunda 7 Features
+
+- **Message Correlation** -- Automatic NATS-to-Camunda message correlation with business key support
+- **JetStream** -- Persistent messaging with ack/nack, exponential backoff, dead letter queue
+- **Three Outbound Delegates** -- Core NATS publish, JetStream publish, Request-Reply
+- **Virtual Threads** -- Java 21 virtual thread offloading
+- **Spring Boot Auto-Configuration** -- `@ConditionalOnClass(ProcessEngine.class)`
+- **Prototype-scoped Delegates** -- Thread-safe by design
+
 ## Requirements
 
 - Java 21+
 - Spring Boot 3.x
-- Flowable 7.x
+- Flowable 7.x and/or Camunda 7.x
 - NATS 2.10+ (for JetStream `nakWithDelay`)
 - `spring.threads.virtual.enabled: true` (recommended for optimal performance)
 
@@ -212,7 +303,7 @@ await nc.subscribe("task.send-sms", queue="sms-workers", cb=handler)
 | JetStream (persistent, DLQ, backoff) | :white_check_mark: Complete |
 | Request-Reply (external workers) | :white_check_mark: Complete |
 | Documentation & Release | :white_check_mark: Complete |
-| Camunda 7.x compatibility study | :crystal_ball: Planned |
+| Camunda 7 adapter | :white_check_mark: Complete |
 | Key-Value Store integration | :crystal_ball: Planned |
 | Object Store integration | :crystal_ball: Planned |
 
