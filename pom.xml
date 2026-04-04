@@ -16,6 +16,7 @@
     <modules>
         <module>nats-core</module>
         <module>flowable-nats-channel</module>
+        <module>camunda-nats-channel</module>
     </modules>
 
     <licenses>
