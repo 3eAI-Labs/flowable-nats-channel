@@ -9,14 +9,15 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>NATS Channel Adapter</name>
-    <description>NATS.io channel adapters for Flowable and Camunda 7</description>
-    <url>https://github.com/3eAI-Labs/flowable-nats-channel</url>
+    <name>NATS BPM Channels</name>
+    <description>NATS.io channel adapters for BPM engines: Flowable, Camunda 7, and CadenzaFlow</description>
+    <url>https://github.com/3eAI-Labs/nats-bpm-channels</url>
 
     <modules>
         <module>nats-core</module>
         <module>flowable-nats-channel</module>
         <module>camunda-nats-channel</module>
+        <module>cadenzaflow-nats-channel</module>
     </modules>
 
     <licenses>
@@ -27,9 +28,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git://github.com/3eAI-Labs/flowable-nats-channel.git</connection>
-        <developerConnection>scm:git:ssh://github.com:3eAI-Labs/flowable-nats-channel.git</developerConnection>
-        <url>https://github.com/3eAI-Labs/flowable-nats-channel</url>
+        <connection>scm:git:git://github.com/3eAI-Labs/nats-bpm-channels.git</connection>
+        <developerConnection>scm:git:ssh://github.com:3eAI-Labs/nats-bpm-channels.git</developerConnection>
+        <url>https://github.com/3eAI-Labs/nats-bpm-channels</url>
     </scm>
 
     <developers>
@@ -60,6 +61,7 @@
         <spring-boot.version>3.3.6</spring-boot.version>
         <flowable.version>7.1.0</flowable.version>
         <camunda.version>7.24.0</camunda.version>
+        <cadenzaflow.version>1.2.0</cadenzaflow.version>
         <jnats.version>2.20.5</jnats.version>
         <testcontainers.version>2.0.4</testcontainers.version>
         <logstash-logback.version>8.0</logstash-logback.version>
@@ -109,6 +111,12 @@
                 <groupId>org.camunda.bpm</groupId>
                 <artifactId>camunda-engine</artifactId>
                 <version>${camunda.version}</version>
+            </dependency>
+            <!-- CadenzaFlow -->
+            <dependency>
+                <groupId>org.cadenzaflow.bpm</groupId>
+                <artifactId>cadenzaflow-engine</artifactId>
+                <version>${cadenzaflow.version}</version>
             </dependency>
             <!-- Internal -->
             <dependency>
